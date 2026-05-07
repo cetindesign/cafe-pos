@@ -36,15 +36,13 @@ export async function createCategory(formData: FormData) {
   const name = formData.get('name')?.toString().trim()
 
   if (!name) {
-    return { error: 'Kategori adı boş bırakılamaz.' }
+    throw new Error('Kategori adı boş bırakılamaz.')
   }
 
-  const { error } = await supabase
-    .from('categories')
-    .insert({ name })
+  const { error } = await supabase.from('categories').insert({ name })
 
   if (error) {
-    return { error: 'Kategori eklenirken bir hata oluştu.' }
+    throw new Error('Kategori eklenirken bir hata oluştu.')
   }
 
   revalidatePath('/admin/menu')
@@ -57,7 +55,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
   const name = formData.get('name')?.toString().trim()
 
   if (!name) {
-    return { error: 'Kategori adı boş bırakılamaz.' }
+    throw new Error('Kategori adı boş bırakılamaz.')
   }
 
   const { error } = await supabase
@@ -66,7 +64,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
     .eq('id', categoryId)
 
   if (error) {
-    return { error: 'Kategori güncellenirken bir hata oluştu.' }
+    throw new Error('Kategori güncellenirken bir hata oluştu.')
   }
 
   revalidatePath('/admin/menu')
@@ -85,7 +83,7 @@ export async function toggleCategoryVisibility(
     .eq('id', categoryId)
 
   if (error) {
-    return { error: 'Görünürlük güncellenemedi.' }
+    throw new Error('Görünürlük güncellenemedi.')
   }
 
   revalidatePath('/admin/menu')
@@ -101,12 +99,12 @@ export async function createProduct(formData: FormData) {
   const priceStr = formData.get('price')?.toString()
 
   if (!name || !categoryId || !priceStr) {
-    return { error: 'Tüm alanlar zorunludur.' }
+    throw new Error('Tüm alanlar zorunludur.')
   }
 
   const price = parseFloat(priceStr)
   if (isNaN(price) || price < 0) {
-    return { error: 'Geçerli bir fiyat girin.' }
+    throw new Error('Geçerli bir fiyat girin.')
   }
 
   const { error } = await supabase.from('products').insert({
@@ -116,7 +114,7 @@ export async function createProduct(formData: FormData) {
   })
 
   if (error) {
-    return { error: 'Ürün eklenirken bir hata oluştu.' }
+    throw new Error('Ürün eklenirken bir hata oluştu.')
   }
 
   revalidatePath('/admin/menu')
@@ -131,12 +129,12 @@ export async function updateProduct(productId: string, formData: FormData) {
   const priceStr = formData.get('price')?.toString()
 
   if (!name || !categoryId || !priceStr) {
-    return { error: 'Tüm alanlar zorunludur.' }
+    throw new Error('Tüm alanlar zorunludur.')
   }
 
   const price = parseFloat(priceStr)
   if (isNaN(price) || price < 0) {
-    return { error: 'Geçerli bir fiyat girin.' }
+    throw new Error('Geçerli bir fiyat girin.')
   }
 
   const { error } = await supabase
@@ -145,7 +143,7 @@ export async function updateProduct(productId: string, formData: FormData) {
     .eq('id', productId)
 
   if (error) {
-    return { error: 'Ürün güncellenirken bir hata oluştu.' }
+    throw new Error('Ürün güncellenirken bir hata oluştu.')
   }
 
   revalidatePath('/admin/menu')
@@ -164,7 +162,7 @@ export async function toggleProductVisibility(
     .eq('id', productId)
 
   if (error) {
-    return { error: 'Görünürlük güncellenemedi.' }
+    throw new Error('Görünürlük güncellenemedi.')
   }
 
   revalidatePath('/admin/menu')
