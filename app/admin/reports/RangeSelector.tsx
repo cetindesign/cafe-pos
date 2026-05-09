@@ -26,7 +26,7 @@ export default function RangeSelector({ current }: { current: DateRange }) {
     <div className="flex items-center gap-3">
       <label
         htmlFor="range"
-        className="text-sm font-medium text-gray-700"
+        className="text-sm font-medium text-brand-primary"
       >
         Zaman Aralığı:
       </label>
@@ -34,7 +34,7 @@ export default function RangeSelector({ current }: { current: DateRange }) {
         id="range"
         value={current}
         onChange={handleChange}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
+        className="rounded-lg border border-brand-border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
       >
         {RANGES.map((range) => (
           <option key={range} value={range}>

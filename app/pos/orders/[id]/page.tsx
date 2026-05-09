@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MenuGrid from '../../MenuGrid'
 import OrderSummary from '../../OrderSummary'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function OrderDetailPage({
   params,
@@ -12,32 +13,26 @@ export default async function OrderDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // Auth
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
-  // Sipariş bilgisini ve masa adını çek
   const { data: order } = await supabase
     .from('orders')
     .select('*, tables(name, section)')
     .eq('id', id)
     .single()
 
-  if (!order || order.status !== 'open') {
-    notFound()
-  }
+  if (!order || order.status !== 'open') notFound()
 
-  // Sipariş kalemleri (ürün adıyla beraber)
   const { data: items } = await supabase
     .from('order_items')
     .select('id, quantity, unit_price, product_id, products(name)')
     .eq('order_id', id)
     .order('created_at', { ascending: true })
 
-  // Menü verileri
   const { data: categories } = await supabase
     .from('categories')
     .select('*')
@@ -50,8 +45,6 @@ export default async function OrderDetailPage({
     .eq('is_available', true)
     .order('display_order', { ascending: true })
 
-  // Supabase select syntax bazen array, bazen single object dönüyor.
-  // TypeScript'i memnun etmek için normalize edelim.
   const normalizedItems = (items || []).map((item) => {
     const product = Array.isArray(item.products)
       ? item.products[0]
@@ -68,30 +61,29 @@ export default async function OrderDetailPage({
   const tableInfo = Array.isArray(order.tables) ? order.tables[0] : order.tables
 
   return (
-    <main className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Üst bar */}
-      <header className="bg-white border-b border-gray-200 flex-shrink-0">
+    <main className="min-h-screen flex flex-col">
+      <header className="bg-white border-b border-brand-border flex-shrink-0">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/pos"
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand-primary transition-colors"
             >
-              ← Masalar
+              <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+              Masalar
             </Link>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
+            <div className="border-l border-brand-border pl-4">
+              <h1 className="font-serif text-xl font-bold text-brand-primary">
                 {tableInfo?.name || 'Masa'}
               </h1>
               {tableInfo?.section && (
-                <p className="text-xs text-gray-500">{tableInfo.section}</p>
+                <p className="text-xs text-neutral-500">{tableInfo.section}</p>
               )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* İki kolon: solda menü, sağda sipariş */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 min-h-0">
         <MenuGrid
           orderId={id}

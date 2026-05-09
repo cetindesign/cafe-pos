@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { addProductToOrder } from './actions'
 import type { Category, Product } from '@/lib/types/database'
+import { Loader2 } from 'lucide-react'
 
 type Props = {
   orderId: string
@@ -36,16 +37,15 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
 
   if (categories.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-10 text-center shadow-sm">
-        <p className="text-gray-500">Menüde henüz ürün yok.</p>
+      <div className="bg-white rounded-2xl border border-brand-border p-10 text-center">
+        <p className="text-neutral-500">Menüde henüz ürün yok.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col h-full">
-      {/* Kategori sekmeleri */}
-      <div className="flex overflow-x-auto border-b border-gray-100">
+    <div className="bg-white rounded-2xl border border-brand-border overflow-hidden flex flex-col h-full">
+      <div className="flex overflow-x-auto border-b border-brand-border">
         {categories.map((cat) => {
           const isActive = cat.id === activeCategoryId
           return (
@@ -56,8 +56,8 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
                 px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors
                 ${
                   isActive
-                    ? 'text-gray-900 border-b-2 border-gray-900'
-                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
+                    ? 'text-brand-primary border-b-2 border-brand-accent'
+                    : 'text-neutral-500 hover:text-brand-primary border-b-2 border-transparent'
                 }
               `}
             >
@@ -67,10 +67,9 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
         })}
       </div>
 
-      {/* Ürün grid */}
       <div className="flex-1 overflow-y-auto p-4">
         {filteredProducts.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-10">
+          <p className="text-sm text-neutral-400 text-center py-10">
             Bu kategoride ürün yok.
           </p>
         ) : (
@@ -83,20 +82,24 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
                   onClick={() => handleAddProduct(product.id)}
                   disabled={isPending}
                   className={`
-                    rounded-xl p-4 text-left border border-gray-200
-                    hover:bg-gray-50 hover:border-gray-300
+                    relative rounded-xl p-4 text-left border border-brand-border
+                    bg-white hover:border-brand-primary hover:shadow-sm
                     transition-all
                     disabled:opacity-50 disabled:cursor-not-allowed
-                    focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1
-                    ${isPending ? 'bg-gray-100' : 'bg-white'}
+                    focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-1
                   `}
                 >
-                  <p className="font-medium text-gray-900 text-sm leading-tight mb-1">
+                  <p className="font-medium text-brand-primary text-sm leading-tight mb-1">
                     {product.name}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-neutral-500">
                     {Number(product.price).toFixed(2)} ₺
                   </p>
+                  {isPending && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl">
+                      <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
+                    </div>
+                  )}
                 </button>
               )
             })}

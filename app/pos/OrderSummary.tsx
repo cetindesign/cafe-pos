@@ -8,6 +8,7 @@ import {
   removeItem,
   closeOrder,
 } from './actions'
+import { Plus, Minus, X, Loader2 } from 'lucide-react'
 
 type OrderItemWithProduct = {
   id: string
@@ -43,7 +44,6 @@ export default function OrderSummary({ orderId, items }: Props) {
     startTransition(async () => {
       try {
         await closeOrder(orderId, paymentMethod)
-        // Başarı sayfasına yönlendir
         router.push(
           `/pos/orders/${orderId}/success?method=${paymentMethod}&total=${total.toFixed(2)}`
         )
@@ -57,10 +57,12 @@ export default function OrderSummary({ orderId, items }: Props) {
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm flex flex-col h-full">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Sipariş</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+      <div className="bg-white rounded-2xl border border-brand-border flex flex-col h-full">
+        <div className="px-6 py-4 border-b border-brand-border">
+          <h2 className="font-serif text-lg font-bold text-brand-primary">
+            Sipariş
+          </h2>
+          <p className="text-xs text-neutral-500 mt-0.5">
             {items.length} farklı kalem
           </p>
         </div>
@@ -68,12 +70,12 @@ export default function OrderSummary({ orderId, items }: Props) {
         <div className="flex-1 overflow-y-auto">
           {items.length === 0 ? (
             <div className="px-6 py-10 text-center">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-neutral-400">
                 Soldaki menüden ürün ekleyin.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-brand-border">
               {items.map((item) => (
                 <OrderItemRow key={item.id} item={item} orderId={orderId} />
               ))}
@@ -81,46 +83,45 @@ export default function OrderSummary({ orderId, items }: Props) {
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 space-y-3">
+        <div className="px-6 py-4 border-t border-brand-border space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Toplam</span>
-            <span className="text-2xl font-bold text-gray-900">
+            <span className="text-sm text-neutral-500">Toplam</span>
+            <span className="font-serif text-2xl font-bold text-brand-primary">
               {total.toFixed(2)} ₺
             </span>
           </div>
           <button
             onClick={() => setShowPaymentModal(true)}
             disabled={!hasItems}
-            className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors"
           >
             Hesap Kapat
           </button>
         </div>
       </div>
 
-      {/* Ödeme Modal */}
       {showPaymentModal && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
           onClick={() => !isPending && setShowPaymentModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8"
+            className="bg-white rounded-2xl border border-brand-border shadow-xl max-w-md w-full p-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="font-serif text-2xl font-bold text-brand-primary mb-2">
               Hesap Kapat
             </h3>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-neutral-500 mb-6">
               Toplam{' '}
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-brand-primary">
                 {total.toFixed(2)} ₺
               </span>{' '}
               tahsil edilecek. Devam etmek istiyor musunuz?
             </p>
 
             <div className="space-y-2 mb-6">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-brand-primary">
                 Ödeme Yöntemi
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -131,8 +132,8 @@ export default function OrderSummary({ orderId, items }: Props) {
                     rounded-lg border px-4 py-3 text-sm font-medium transition-colors
                     ${
                       paymentMethod === 'cash'
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-brand-primary text-white border-brand-primary'
+                        : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
                     }
                     disabled:opacity-50
                   `}
@@ -146,8 +147,8 @@ export default function OrderSummary({ orderId, items }: Props) {
                     rounded-lg border px-4 py-3 text-sm font-medium transition-colors
                     ${
                       paymentMethod === 'card'
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-brand-primary text-white border-brand-primary'
+                        : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
                     }
                     disabled:opacity-50
                   `}
@@ -158,7 +159,7 @@ export default function OrderSummary({ orderId, items }: Props) {
             </div>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -167,15 +168,16 @@ export default function OrderSummary({ orderId, items }: Props) {
               <button
                 onClick={() => setShowPaymentModal(false)}
                 disabled={isPending}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors disabled:opacity-50"
               >
                 Vazgeç
               </button>
               <button
                 onClick={handleConfirmPayment}
                 disabled={isPending}
-                className="flex-1 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
               >
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isPending ? 'İşleniyor...' : 'Onayla'}
               </button>
             </div>
@@ -231,20 +233,20 @@ function OrderItemRow({
     <li className={`px-6 py-3 ${isPending ? 'opacity-50' : ''}`}>
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 text-sm">
+          <p className="font-medium text-brand-primary text-sm">
             {item.products?.name || 'Bilinmeyen ürün'}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-neutral-500">
             {Number(item.unit_price).toFixed(2)} ₺
           </p>
         </div>
         <button
           onClick={handleRemove}
           disabled={isPending}
-          className="text-gray-400 hover:text-red-600 transition-colors text-xs"
+          className="text-neutral-400 hover:text-red-600 transition-colors p-0.5"
           aria-label="Kalemi sil"
         >
-          ✕
+          <X className="w-4 h-4" strokeWidth={2} />
         </button>
       </div>
 
@@ -253,24 +255,24 @@ function OrderItemRow({
           <button
             onClick={handleDecrease}
             disabled={isPending}
-            className="w-8 h-8 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-brand-border hover:bg-brand-muted transition-colors text-neutral-600 disabled:opacity-50"
             aria-label="Miktar azalt"
           >
-            −
+            <Minus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
-          <span className="text-sm font-medium text-gray-900 min-w-[2rem] text-center">
+          <span className="text-sm font-medium text-brand-primary min-w-[2rem] text-center">
             {item.quantity}
           </span>
           <button
             onClick={handleIncrease}
             disabled={isPending}
-            className="w-8 h-8 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-brand-border hover:bg-brand-muted transition-colors text-neutral-600 disabled:opacity-50"
             aria-label="Miktar artır"
           >
-            +
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
         </div>
-        <span className="text-sm font-semibold text-gray-900">
+        <span className="font-serif text-sm font-bold text-brand-primary">
           {lineTotal.toFixed(2)} ₺
         </span>
       </div>

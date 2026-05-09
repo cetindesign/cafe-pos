@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createTable } from '../actions'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function NewTablePage() {
   const supabase = await createClient()
@@ -20,7 +21,6 @@ export default async function NewTablePage() {
 
   if (!profile || profile.role !== 'manager') redirect('/pos')
 
-  // Mevcut bölgeleri çek (datalist için)
   const { data: existingTables } = await supabase
     .from('tables')
     .select('section')
@@ -30,23 +30,26 @@ export default async function NewTablePage() {
   ).sort()
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
+    <main className="min-h-screen p-6">
       <div className="max-w-md mx-auto">
         <Link
           href="/admin/tables"
-          className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand-primary mb-4 transition-colors"
         >
-          ← Masa Yönetimi
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+          Masa Yönetimi
         </Link>
 
-        <div className="bg-white rounded-2xl p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Yeni Masa</h1>
+        <div className="bg-white rounded-2xl border border-brand-border p-8">
+          <h1 className="font-serif text-2xl font-bold text-brand-primary mb-6">
+            Yeni Masa
+          </h1>
 
           <form action={createTable} className="space-y-5">
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-brand-primary mb-1.5"
               >
                 Masa Adı
               </label>
@@ -57,14 +60,14 @@ export default async function NewTablePage() {
                 required
                 autoFocus
                 placeholder="Örn. Sehpa, Sağ 1"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full rounded-lg border border-brand-border px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
               />
             </div>
 
             <div>
               <label
                 htmlFor="section"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-brand-primary mb-1.5"
               >
                 Bölge
               </label>
@@ -75,14 +78,14 @@ export default async function NewTablePage() {
                 list="sections-list"
                 placeholder="Örn. Salon, Bahçe"
                 defaultValue=""
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full rounded-lg border border-brand-border px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
               />
               <datalist id="sections-list">
                 {uniqueSections.map((s) => (
                   <option key={s} value={s} />
                 ))}
               </datalist>
-              <p className="mt-1.5 text-xs text-gray-500">
+              <p className="mt-1.5 text-xs text-neutral-500">
                 Boş bırakılırsa &ldquo;Genel&rdquo; olarak kaydedilir.
               </p>
             </div>
@@ -90,13 +93,13 @@ export default async function NewTablePage() {
             <div className="flex gap-3 pt-2">
               <Link
                 href="/admin/tables"
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-center"
+                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors text-center"
               >
                 İptal
               </Link>
               <button
                 type="submit"
-                className="flex-1 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+                className="flex-1 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
               >
                 Masa Ekle
               </button>

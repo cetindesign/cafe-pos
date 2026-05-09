@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { getOrCreateOrderForTable } from './actions'
+import { Loader2 } from 'lucide-react'
 
 type Props = {
   tableId: string
@@ -46,25 +47,32 @@ export default function OpenTableButton({
       disabled={isPending}
       className={`
         relative aspect-square rounded-2xl p-4 text-left transition-all
+        border
         ${
           isOccupied
-            ? 'bg-gray-900 text-white hover:bg-gray-800'
-            : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
+            ? 'bg-brand-primary text-white border-brand-primary hover:bg-neutral-800'
+            : 'bg-white text-brand-primary border-brand-border hover:border-brand-primary hover:shadow-sm'
         }
         disabled:opacity-50 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2
+        focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2
       `}
     >
       <div className="flex flex-col h-full justify-between">
-        <span className="text-base font-semibold">{tableName}</span>
-        <span className="text-xs opacity-75">
-          {isOccupied ? 'Açık sipariş' : 'Boş'}
+        <span className="font-serif text-lg font-bold leading-tight">
+          {tableName}
+        </span>
+        <span
+          className={`text-xs ${
+            isOccupied ? 'text-brand-accent' : 'text-neutral-400'
+          }`}
+        >
+          {isOccupied ? '● Açık sipariş' : 'Boş'}
         </span>
       </div>
 
       {isPending && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-2xl">
-          <span className="text-xs text-white">Açılıyor...</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
+          <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
         </div>
       )}
 

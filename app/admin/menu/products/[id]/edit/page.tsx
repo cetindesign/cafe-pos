@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { updateProduct } from '../../../actions'
 import type { Category } from '@/lib/types/database'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function EditProductPage({
   params,
@@ -12,7 +13,6 @@ export default async function EditProductPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // Auth kontrolü
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -27,38 +27,34 @@ export default async function EditProductPage({
 
   if (!profile || profile.role !== 'manager') redirect('/pos')
 
-  // Ürünü çek
   const { data: product } = await supabase
     .from('products')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (!product) {
-    notFound()
-  }
+  if (!product) notFound()
 
-  // Kategorileri çek
   const { data: categories } = await supabase
     .from('categories')
     .select('*')
     .order('display_order', { ascending: true })
 
-  // Server Action'ı bu ürün için bağla
   const updateThisProduct = updateProduct.bind(null, id)
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
+    <main className="min-h-screen p-6">
       <div className="max-w-md mx-auto">
         <Link
           href="/admin/menu"
-          className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand-primary mb-4 transition-colors"
         >
-          ← Menü Yönetimi
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+          Menü Yönetimi
         </Link>
 
-        <div className="bg-white rounded-2xl p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        <div className="bg-white rounded-2xl border border-brand-border p-8">
+          <h1 className="font-serif text-2xl font-bold text-brand-primary mb-6">
             Ürünü Düzenle
           </h1>
 
@@ -66,7 +62,7 @@ export default async function EditProductPage({
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-brand-primary mb-1.5"
               >
                 Ürün Adı
               </label>
@@ -76,14 +72,14 @@ export default async function EditProductPage({
                 type="text"
                 required
                 defaultValue={product.name}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full rounded-lg border border-brand-border px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
               />
             </div>
 
             <div>
               <label
                 htmlFor="category_id"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-brand-primary mb-1.5"
               >
                 Kategori
               </label>
@@ -92,7 +88,7 @@ export default async function EditProductPage({
                 name="category_id"
                 required
                 defaultValue={product.category_id}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
+                className="w-full rounded-lg border border-brand-border px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
               >
                 {(categories || []).map((cat: Category) => (
                   <option key={cat.id} value={cat.id}>
@@ -105,7 +101,7 @@ export default async function EditProductPage({
             <div>
               <label
                 htmlFor="price"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-brand-primary mb-1.5"
               >
                 Fiyat (₺)
               </label>
@@ -117,20 +113,20 @@ export default async function EditProductPage({
                 min="0"
                 required
                 defaultValue={product.price}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full rounded-lg border border-brand-border px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
               />
             </div>
 
             <div className="flex gap-3 pt-2">
               <Link
                 href="/admin/menu"
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-center"
+                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors text-center"
               >
                 İptal
               </Link>
               <button
                 type="submit"
-                className="flex-1 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+                className="flex-1 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
               >
                 Kaydet
               </button>

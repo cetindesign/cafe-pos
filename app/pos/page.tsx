@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { signOut } from '../actions'
 import type { Table } from '@/lib/types/database'
 import OpenTableButton from './OpenTableButton'
+import { Coffee, LogOut } from 'lucide-react'
+import SettingsMenu from './SettingsMenu'
 
 export default async function PosPage() {
   const supabase = await createClient()
@@ -22,7 +24,6 @@ export default async function PosPage() {
 
   if (!profile) redirect('/login')
 
-  // Aktif masaları çek
   const { data: tables } = await supabase
     .from('tables')
     .select('*')
@@ -30,7 +31,6 @@ export default async function PosPage() {
     .order('section', { ascending: true })
     .order('display_order', { ascending: true })
 
-  // Açık siparişleri çek (table_id'si olanlar)
   const { data: openOrders } = await supabase
     .from('orders')
     .select('id, table_id')
@@ -40,7 +40,6 @@ export default async function PosPage() {
     (openOrders || []).map((o) => [o.table_id, o.id])
   )
 
-  // Masaları bölgelere göre grupla
   const tablesBySection = (tables || []).reduce<Record<string, Table[]>>(
     (acc, table) => {
       if (!acc[table.section]) acc[table.section] = []
@@ -53,32 +52,32 @@ export default async function PosPage() {
   const sections = Object.keys(tablesBySection)
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      {/* Üst bar */}
-      <header className="bg-white border-b border-gray-200">
+    <main className="min-h-screen">
+      <header className="bg-white border-b border-brand-border">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">POS</h1>
-            <p className="text-xs text-gray-500">
-              {profile.full_name} •{' '}
-              {profile.role === 'manager' ? 'Yönetici' : 'Kasiyer'}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-brand-primary text-brand-accent">
+              <Coffee className="w-5 h-5" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h1 className="font-serif text-lg font-bold text-brand-primary">
+                Cafe POS
+              </h1>
+              <p className="text-xs text-neutral-500">
+                {profile.full_name} •{' '}
+                {profile.role === 'manager' ? 'Yönetici' : 'Kasiyer'}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {profile.role === 'manager' && (
-              <Link
-                href="/admin"
-                className="text-sm text-gray-700 hover:text-gray-900"
-              >
-                Yönetici Paneli
-              </Link>
-            )}
+          <div className="flex items-center gap-2">
+            {profile.role === 'manager' && <SettingsMenu />}
             <form action={signOut}>
               <button
                 type="submit"
-                className="text-sm rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-border px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors"
               >
+                <LogOut className="w-4 h-4" strokeWidth={1.75} />
                 Çıkış
               </button>
             </form>
@@ -86,11 +85,10 @@ export default async function PosPage() {
         </div>
       </header>
 
-      {/* İçerik */}
       <div className="max-w-7xl mx-auto p-6">
         {sections.length === 0 ? (
-          <div className="bg-white rounded-2xl p-10 text-center shadow-sm">
-            <p className="text-gray-500">
+          <div className="bg-white rounded-2xl border border-brand-border p-10 text-center">
+            <p className="text-neutral-500">
               Henüz aktif masa yok. Yöneticiden masa eklemesini isteyin.
             </p>
           </div>
@@ -98,7 +96,7 @@ export default async function PosPage() {
           <div className="space-y-8">
             {sections.map((section) => (
               <section key={section}>
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                <h2 className="font-serif text-xl font-bold text-brand-primary mb-4">
                   {section}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
