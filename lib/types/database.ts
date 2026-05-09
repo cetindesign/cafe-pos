@@ -31,11 +31,14 @@ export type Table = {
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled'
 
+export type PaymentMethod = 'cash' | 'card'
+
 export type Order = {
   id: string
   table_id: string
   cashier_id: string
   status: OrderStatus
+  payment_method: PaymentMethod | null
   created_at: string
   closed_at: string | null
 }

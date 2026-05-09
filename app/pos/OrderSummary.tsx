@@ -1,10 +1,12 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   increaseItemQuantity,
   decreaseItemQuantity,
   removeItem,
+  closeOrder,
 } from './actions'
 
 type OrderItemWithProduct = {
@@ -23,48 +25,164 @@ type Props = {
 }
 
 export default function OrderSummary({ orderId, items }: Props) {
+  const router = useRouter()
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
   const total = items.reduce(
     (sum, item) => sum + Number(item.unit_price) * item.quantity,
     0
   )
 
+  const hasItems = items.length > 0
+
+  function handleConfirmPayment() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await closeOrder(orderId, paymentMethod)
+        // Başarı sayfasına yönlendir
+        router.push(
+          `/pos/orders/${orderId}/success?method=${paymentMethod}&total=${total.toFixed(2)}`
+        )
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : 'Ödeme işlemi başarısız.'
+        setError(message)
+      }
+    })
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-900">Sipariş</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {items.length} farklı kalem
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {items.length === 0 ? (
-          <div className="px-6 py-10 text-center">
-            <p className="text-sm text-gray-400">
-              Soldaki menüden ürün ekleyin.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {items.map((item) => (
-              <OrderItemRow key={item.id} item={item} orderId={orderId} />
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="px-6 py-4 border-t border-gray-200">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm text-gray-500">Toplam</span>
-          <span className="text-2xl font-bold text-gray-900">
-            {total.toFixed(2)} ₺
-          </span>
+    <>
+      <div className="bg-white rounded-2xl shadow-sm flex flex-col h-full">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Sipariş</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {items.length} farklı kalem
+          </p>
         </div>
-        <p className="text-xs text-gray-400">
-          Hesap kapatma Sprint 4&apos;te eklenecek
-        </p>
+
+        <div className="flex-1 overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm text-gray-400">
+                Soldaki menüden ürün ekleyin.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {items.map((item) => (
+                <OrderItemRow key={item.id} item={item} orderId={orderId} />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">Toplam</span>
+            <span className="text-2xl font-bold text-gray-900">
+              {total.toFixed(2)} ₺
+            </span>
+          </div>
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            disabled={!hasItems}
+            className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            Hesap Kapat
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* Ödeme Modal */}
+      {showPaymentModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+          onClick={() => !isPending && setShowPaymentModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Hesap Kapat
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Toplam{' '}
+              <span className="font-semibold text-gray-900">
+                {total.toFixed(2)} ₺
+              </span>{' '}
+              tahsil edilecek. Devam etmek istiyor musunuz?
+            </p>
+
+            <div className="space-y-2 mb-6">
+              <p className="text-sm font-medium text-gray-700">
+                Ödeme Yöntemi
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPaymentMethod('cash')}
+                  disabled={isPending}
+                  className={`
+                    rounded-lg border px-4 py-3 text-sm font-medium transition-colors
+                    ${
+                      paymentMethod === 'cash'
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }
+                    disabled:opacity-50
+                  `}
+                >
+                  Nakit
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('card')}
+                  disabled={isPending}
+                  className={`
+                    rounded-lg border px-4 py-3 text-sm font-medium transition-colors
+                    ${
+                      paymentMethod === 'card'
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }
+                    disabled:opacity-50
+                  `}
+                >
+                  Kart
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isPending}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                {isPending ? 'İşleniyor...' : 'Onayla'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

@@ -20,12 +20,10 @@ async function assertAuthenticated() {
 
 /**
  * Bir masa için sipariş açar veya mevcut açık siparişi döner.
- * Kullanıcı masaya tıkladığında çağrılır.
  */
 export async function getOrCreateOrderForTable(tableId: string) {
   const { supabase, user } = await assertAuthenticated()
 
-  // Önce o masada açık sipariş var mı bak
   const { data: existing } = await supabase
     .from('orders')
     .select('id')
@@ -37,7 +35,6 @@ export async function getOrCreateOrderForTable(tableId: string) {
     return { orderId: existing.id }
   }
 
-  // Yoksa yeni sipariş aç
   const { data: newOrder, error } = await supabase
     .from('orders')
     .insert({
@@ -61,7 +58,6 @@ export async function getOrCreateOrderForTable(tableId: string) {
 export async function addProductToOrder(orderId: string, productId: string) {
   const { supabase } = await assertAuthenticated()
 
-  // Bu üründen zaten kalem var mı?
   const { data: existing } = await supabase
     .from('order_items')
     .select('id, quantity')
@@ -70,7 +66,6 @@ export async function addProductToOrder(orderId: string, productId: string) {
     .maybeSingle()
 
   if (existing) {
-    // Mevcut kalemin miktarını artır
     const { error } = await supabase
       .from('order_items')
       .update({ quantity: existing.quantity + 1 })
@@ -80,7 +75,6 @@ export async function addProductToOrder(orderId: string, productId: string) {
       throw new Error('Miktar güncellenemedi.')
     }
   } else {
-    // Yeni kalem ekle, ürünün anlık fiyatını al
     const { data: product } = await supabase
       .from('products')
       .select('price')
@@ -151,7 +145,6 @@ export async function decreaseItemQuantity(itemId: string, orderId: string) {
   }
 
   if (item.quantity <= 1) {
-    // 1'deyse tamamen sil
     const { error } = await supabase
       .from('order_items')
       .delete()
@@ -175,7 +168,7 @@ export async function decreaseItemQuantity(itemId: string, orderId: string) {
 }
 
 /**
- * Bir kalemi tamamen siler (çarpı butonu için).
+ * Bir kalemi tamamen siler.
  */
 export async function removeItem(itemId: string, orderId: string) {
   const { supabase } = await assertAuthenticated()
@@ -189,5 +182,58 @@ export async function removeItem(itemId: string, orderId: string) {
     throw new Error('Kalem silinemedi.')
   }
 
+  revalidatePath(`/pos/orders/${orderId}`)
+}
+
+/**
+ * Bir siparişi kapatır (ödendi durumuna geçirir).
+ * Boş sipariş kapatılamaz.
+ */
+export async function closeOrder(
+  orderId: string,
+  paymentMethod: 'cash' | 'card'
+) {
+  const { supabase } = await assertAuthenticated()
+
+  // Sipariş hâlâ açık mı kontrol et
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('id', orderId)
+    .single()
+
+  if (!order) {
+    throw new Error('Sipariş bulunamadı.')
+  }
+
+  if (order.status !== 'open') {
+    throw new Error('Bu sipariş zaten kapatılmış.')
+  }
+
+  // Sipariş kalemleri var mı?
+  const { count } = await supabase
+    .from('order_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+
+  if (!count || count === 0) {
+    throw new Error('Boş sipariş kapatılamaz. Önce ürün ekleyin.')
+  }
+
+  // Kapat
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: 'paid',
+      payment_method: paymentMethod,
+      closed_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+
+  if (error) {
+    throw new Error('Sipariş kapatılamadı.')
+  }
+
+  revalidatePath('/pos')
   revalidatePath(`/pos/orders/${orderId}`)
 }
