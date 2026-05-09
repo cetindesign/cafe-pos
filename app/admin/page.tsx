@@ -42,6 +42,12 @@ export default async function AdminPage() {
           >
             Menü Yönetimi
           </Link>
+          <Link
+            href="/admin/tables"
+            className="block w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+          >
+            Masa Yönetimi
+          </Link>
         </div>
 
         <form action={signOut}>
