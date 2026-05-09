@@ -48,6 +48,12 @@ export default async function AdminPage() {
           >
             Masa Yönetimi
           </Link>
+          <Link
+            href="/admin/reports"
+            className="block w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+          >
+            Raporlar
+          </Link>
         </div>
 
         <form action={signOut}>
