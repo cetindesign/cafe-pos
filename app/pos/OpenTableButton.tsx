@@ -9,6 +9,7 @@ type Props = {
   tableId: string
   tableName: string
   existingOrderId: string | undefined
+  currentTotal: number
   isOccupied: boolean
 }
 
@@ -16,6 +17,7 @@ export default function OpenTableButton({
   tableId,
   tableName,
   existingOrderId,
+  currentTotal,
   isOccupied,
 }: Props) {
   const router = useRouter()
@@ -61,13 +63,20 @@ export default function OpenTableButton({
         <span className="font-serif text-lg font-bold leading-tight">
           {tableName}
         </span>
-        <span
-          className={`text-xs ${
-            isOccupied ? 'text-brand-accent' : 'text-neutral-400'
-          }`}
-        >
-          {isOccupied ? '● Açık sipariş' : 'Boş'}
-        </span>
+        <div>
+          {isOccupied && currentTotal > 0 && (
+            <p className="text-xl font-bold text-brand-accent mb-1">
+              {currentTotal.toFixed(2)} ₺
+            </p>
+          )}
+          <span
+            className={`text-xs ${
+              isOccupied ? 'text-brand-accent/70' : 'text-neutral-400'
+            }`}
+          >
+            {isOccupied ? '● Açık sipariş' : 'Boş'}
+          </span>
+        </div>
       </div>
 
       {isPending && (

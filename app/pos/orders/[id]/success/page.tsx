@@ -35,7 +35,7 @@ export default async function OrderSuccessPage({
         <div className="bg-brand-muted rounded-xl p-5 mb-8 space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm text-neutral-500">Toplam</span>
-            <span className="font-serif text-xl font-bold text-brand-primary">
+            <span className="text-xl font-bold text-brand-primary">
               {total} ₺
             </span>
           </div>

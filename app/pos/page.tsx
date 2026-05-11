@@ -1,11 +1,13 @@
+export const dynamic = 'force-dynamic'
+
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '../actions'
 import type { Table } from '@/lib/types/database'
 import OpenTableButton from './OpenTableButton'
-import { Coffee, LogOut } from 'lucide-react'
 import SettingsMenu from './SettingsMenu'
+import { Coffee, LogOut } from 'lucide-react'
 
 export default async function PosPage() {
   const supabase = await createClient()
@@ -31,14 +33,34 @@ export default async function PosPage() {
     .order('section', { ascending: true })
     .order('display_order', { ascending: true })
 
+  // Açık siparişleri kalemleriyle çek (tutarı hesaplamak için)
   const { data: openOrders } = await supabase
     .from('orders')
-    .select('id, table_id')
+    .select(`
+      id,
+      table_id,
+      order_items ( quantity, unit_price )
+    `)
     .eq('status', 'open')
 
-  const openOrdersByTable = new Map(
-    (openOrders || []).map((o) => [o.table_id, o.id])
-  )
+  // Masa id'sine göre {orderId, total} eşleştir
+  type OpenOrderInfo = { orderId: string; total: number }
+  const openOrdersByTable = new Map<string, OpenOrderInfo>()
+
+  for (const order of openOrders || []) {
+    const items = (order.order_items || []) as Array<{
+      quantity: number
+      unit_price: number
+    }>
+    const total = items.reduce(
+      (sum, item) => sum + Number(item.unit_price) * item.quantity,
+      0
+    )
+    openOrdersByTable.set(order.table_id, {
+      orderId: order.id,
+      total,
+    })
+  }
 
   const tablesBySection = (tables || []).reduce<Record<string, Table[]>>(
     (acc, table) => {
@@ -101,16 +123,16 @@ export default async function PosPage() {
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {tablesBySection[section].map((table) => {
-                    const openOrderId = openOrdersByTable.get(table.id)
-                    const isOccupied = !!openOrderId
+                    const openOrder = openOrdersByTable.get(table.id)
 
                     return (
                       <OpenTableButton
                         key={table.id}
                         tableId={table.id}
                         tableName={table.name}
-                        existingOrderId={openOrderId}
-                        isOccupied={isOccupied}
+                        existingOrderId={openOrder?.orderId}
+                        currentTotal={openOrder?.total ?? 0}
+                        isOccupied={!!openOrder}
                       />
                     )
                   })}

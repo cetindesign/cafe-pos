@@ -289,7 +289,7 @@ function KpiCard({
           {label}
         </p>
       </div>
-      <p className="font-serif text-2xl font-bold text-brand-primary">
+      <p className="text-2xl font-bold text-brand-primary">
         {value}
       </p>
     </div>

@@ -86,7 +86,7 @@ export default function OrderSummary({ orderId, items }: Props) {
         <div className="px-6 py-4 border-t border-brand-border space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-neutral-500">Toplam</span>
-            <span className="font-serif text-2xl font-bold text-brand-primary">
+            <span className="text-2xl font-bold text-brand-primary">
               {total.toFixed(2)} ₺
             </span>
           </div>
@@ -272,7 +272,7 @@ function OrderItemRow({
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
         </div>
-        <span className="font-serif text-sm font-bold text-brand-primary">
+        <span className="text-sm font-bold text-brand-primary">
           {lineTotal.toFixed(2)} ₺
         </span>
       </div>
