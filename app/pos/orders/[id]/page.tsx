@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MenuGrid from '../../MenuGrid'
 import OrderSummary from '../../OrderSummary'
+import CancelEmptyOrderButton from '../../CancelEmptyOrderButton'
 import { ArrowLeft } from 'lucide-react'
 
 export default async function OrderDetailPage({
@@ -59,6 +60,7 @@ export default async function OrderDetailPage({
   })
 
   const tableInfo = Array.isArray(order.tables) ? order.tables[0] : order.tables
+  const isEmpty = normalizedItems.length === 0
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -81,6 +83,8 @@ export default async function OrderDetailPage({
               )}
             </div>
           </div>
+
+          {isEmpty && <CancelEmptyOrderButton orderId={id} />}
         </div>
       </header>
 

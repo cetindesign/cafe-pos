@@ -237,3 +237,29 @@ export async function closeOrder(
   revalidatePath('/pos')
   revalidatePath(`/pos/orders/${orderId}`)
 }
+
+/**
+ * Bir siparişi iptal eder (sadece içinde kalem yoksa).
+ * Yanlış masaya tıklama senaryosu için.
+ */
+export async function cancelEmptyOrder(orderId: string) {
+  const { supabase } = await assertAuthenticated()
+
+  // Kalem var mı kontrol et
+  const { count } = await supabase
+    .from('order_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+
+  if (count && count > 0) {
+    throw new Error('Bu sipariş boş değil, iptal edilemez.')
+  }
+
+  const { error } = await supabase.from('orders').delete().eq('id', orderId)
+
+  if (error) {
+    throw new Error('Sipariş iptal edilemedi.')
+  }
+
+  revalidatePath('/pos')
+}
