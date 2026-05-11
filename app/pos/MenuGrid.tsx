@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { addProductToOrder } from './actions'
 import type { Category, Product } from '@/lib/types/database'
 import { Loader2 } from 'lucide-react'
@@ -17,6 +18,8 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
   )
   const [pendingProductId, setPendingProductId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+  const router = useRouter()
+
 
   const filteredProducts = products.filter(
     (p) => p.category_id === activeCategoryId && p.is_available
@@ -27,6 +30,7 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
     startTransition(async () => {
       try {
         await addProductToOrder(orderId, productId)
+        router.refresh()
       } catch (e) {
         console.error(e)
       } finally {

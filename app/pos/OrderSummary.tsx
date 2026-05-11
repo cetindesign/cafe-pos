@@ -196,6 +196,7 @@ function OrderItemRow({
   orderId: string
 }) {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const lineTotal = Number(item.unit_price) * item.quantity
 
@@ -203,6 +204,7 @@ function OrderItemRow({
     startTransition(async () => {
       try {
         await increaseItemQuantity(item.id, orderId)
+        router.refresh()
       } catch (e) {
         console.error(e)
       }
@@ -213,6 +215,7 @@ function OrderItemRow({
     startTransition(async () => {
       try {
         await decreaseItemQuantity(item.id, orderId)
+        router.refresh()
       } catch (e) {
         console.error(e)
       }
@@ -223,6 +226,7 @@ function OrderItemRow({
     startTransition(async () => {
       try {
         await removeItem(item.id, orderId)
+        router.refresh()
       } catch (e) {
         console.error(e)
       }
