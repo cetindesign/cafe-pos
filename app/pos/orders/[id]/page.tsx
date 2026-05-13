@@ -1,12 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import Link from 'next/link'
+import BackToTablesLink from '../../BackToTablesLink'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MenuGrid from '../../MenuGrid'
 import OrderSummary from '../../OrderSummary'
 import CancelEmptyOrderButton from '../../CancelEmptyOrderButton'
-import { ArrowLeft } from 'lucide-react'
 
 export default async function OrderDetailPage({
   params,
@@ -69,13 +68,7 @@ export default async function OrderDetailPage({
       <header className="bg-white border-b border-brand-border flex-shrink-0">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/pos"
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
-              Masalar
-            </Link>
+           <BackToTablesLink orderId={id} isEmpty={isEmpty} />
             <div className="border-l border-brand-border pl-4">
               <h1 className="font-serif text-xl font-bold text-brand-primary">
                 {tableInfo?.name || 'Masa'}

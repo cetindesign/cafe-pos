@@ -1,12 +1,10 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { cancelEmptyOrder } from './actions'
 import { Trash2, Loader2 } from 'lucide-react'
 
 export default function CancelEmptyOrderButton({ orderId }: { orderId: string }) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   function handleClick() {
@@ -15,7 +13,7 @@ export default function CancelEmptyOrderButton({ orderId }: { orderId: string })
     startTransition(async () => {
       try {
         await cancelEmptyOrder(orderId)
-        router.push('/pos')
+        window.location.href = '/pos'
       } catch (e) {
         console.error(e)
       }
