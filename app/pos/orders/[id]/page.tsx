@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic'
 import BackToTablesLink from '../../BackToTablesLink'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import MenuGrid from '../../MenuGrid'
-import OrderSummary from '../../OrderSummary'
+import OrderWorkspace from '../../OrderWorkspace'
 import CancelEmptyOrderButton from '../../CancelEmptyOrderButton'
 
 export default async function OrderDetailPage({
@@ -31,7 +30,7 @@ export default async function OrderDetailPage({
 
   const { data: items } = await supabase
     .from('order_items')
-    .select('id, quantity, unit_price, product_id, products(name)')
+    .select('id, quantity, unit_price, product_id, note, products(name)')
     .eq('order_id', id)
     .order('created_at', { ascending: true })
 
@@ -56,6 +55,7 @@ export default async function OrderDetailPage({
       quantity: item.quantity,
       unit_price: item.unit_price,
       product_id: item.product_id,
+      note: item.note,
       products: product ?? null,
     }
   })
@@ -83,14 +83,12 @@ export default async function OrderDetailPage({
         </div>
       </header>
 
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 min-h-0">
-        <MenuGrid
-          orderId={id}
-          categories={categories || []}
-          products={products || []}
-        />
-        <OrderSummary orderId={id} items={normalizedItems} />
-      </div>
+      <OrderWorkspace
+        orderId={id}
+        items={normalizedItems}
+        categories={categories || []}
+        products={products || []}
+      />
     </main>
   )
 }

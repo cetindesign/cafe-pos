@@ -1,43 +1,23 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { addProductToOrder } from './actions'
+import { useState } from 'react'
 import type { Category, Product } from '@/lib/types/database'
-import { Loader2 } from 'lucide-react'
 
 type Props = {
-  orderId: string
   categories: Category[]
   products: Product[]
+  // Ürüne tıklanınca optimistik sepete ekleme; sunucu senkronu üst seviyede (OrderWorkspace).
+  onAddProduct: (productId: string) => void
 }
 
-export default function MenuGrid({ orderId, categories, products }: Props) {
+export default function MenuGrid({ categories, products, onAddProduct }: Props) {
   const [activeCategoryId, setActiveCategoryId] = useState(
     categories[0]?.id ?? null
   )
-  const [pendingProductId, setPendingProductId] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
-  const router = useRouter()
-
 
   const filteredProducts = products.filter(
     (p) => p.category_id === activeCategoryId && p.is_available
   )
-
-  function handleAddProduct(productId: string) {
-    setPendingProductId(productId)
-    startTransition(async () => {
-      try {
-        await addProductToOrder(orderId, productId)
-        router.refresh()
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setPendingProductId(null)
-      }
-    })
-  }
 
   if (categories.length === 0) {
     return (
@@ -78,35 +58,25 @@ export default function MenuGrid({ orderId, categories, products }: Props) {
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {filteredProducts.map((product) => {
-              const isPending = pendingProductId === product.id
-              return (
-                <button
-                  key={product.id}
-                  onClick={() => handleAddProduct(product.id)}
-                  disabled={isPending}
-                  className={`
-                    relative rounded-xl p-4 text-left border border-brand-border
-                    bg-white hover:border-brand-primary hover:shadow-sm
-                    transition-all
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-1
-                  `}
-                >
-                  <p className="font-medium text-brand-primary text-sm leading-tight mb-1">
-                    {product.name}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {Number(product.price).toFixed(2)} ₺
-                  </p>
-                  {isPending && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl">
-                      <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
-                    </div>
-                  )}
-                </button>
-              )
-            })}
+            {filteredProducts.map((product) => (
+              <button
+                key={product.id}
+                onClick={() => onAddProduct(product.id)}
+                className={`
+                  relative rounded-xl p-4 text-left border border-brand-border
+                  bg-white hover:border-brand-primary hover:shadow-sm
+                  transition-all
+                  focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-1
+                `}
+              >
+                <p className="font-medium text-brand-primary text-sm leading-tight mb-1">
+                  {product.name}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {Number(product.price).toFixed(2)} ₺
+                </p>
+              </button>
+            ))}
           </div>
         )}
       </div>

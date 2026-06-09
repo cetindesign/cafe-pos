@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { getOrCreateOrderForTable } from './actions'
 import { Loader2 } from 'lucide-react'
+import RenameTableButton from './RenameTableButton'
 
 type Props = {
   tableId: string
@@ -11,6 +12,7 @@ type Props = {
   existingOrderId: string | undefined
   currentTotal: number
   isOccupied: boolean
+  canEdit: boolean
 }
 
 export default function OpenTableButton({
@@ -19,6 +21,7 @@ export default function OpenTableButton({
   existingOrderId,
   currentTotal,
   isOccupied,
+  canEdit,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -44,11 +47,14 @@ export default function OpenTableButton({
   }
 
   return (
+    // Kart + kalem ikonu için göreli sarmalayıcı. Kalem ikonu <button>'ın DIŞINDA,
+    // ayrı bir element olarak köşeye konumlanır.
+    <div className="relative">
     <button
       onClick={handleClick}
       disabled={isPending}
       className={`
-        relative aspect-square rounded-2xl p-4 text-left transition-all
+        relative aspect-square w-full rounded-2xl p-4 text-left transition-all
         border
         ${
           isOccupied
@@ -91,5 +97,11 @@ export default function OpenTableButton({
         </div>
       )}
     </button>
+
+      {/* Yalnızca manager'a görünür: masa adını düzenleme afordansı */}
+      {canEdit && (
+        <RenameTableButton tableId={tableId} tableName={tableName} />
+      )}
+    </div>
   )
 }

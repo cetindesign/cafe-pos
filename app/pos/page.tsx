@@ -133,6 +133,7 @@ export default async function PosPage() {
                         existingOrderId={openOrder?.orderId}
                         currentTotal={openOrder?.total ?? 0}
                         isOccupied={!!openOrder}
+                        canEdit={profile.role === 'manager'}
                       />
                     )
                   })}

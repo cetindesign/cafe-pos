@@ -68,3 +68,70 @@ export function isValidDateRange(value: string): value is DateRange {
     value
   )
 }
+
+// Özel aralık başlığında kullanılan kısa Türkçe ay adları
+const SHORT_MONTHS = [
+  'Oca',
+  'Şub',
+  'Mar',
+  'Nis',
+  'May',
+  'Haz',
+  'Tem',
+  'Ağu',
+  'Eyl',
+  'Eki',
+  'Kas',
+  'Ara',
+]
+
+/**
+ * Bir değerin geçerli bir "YYYY-MM-DD" tarihi olup olmadığını kontrol eder.
+ * Hem format hem de takvimsel geçerlilik (örn. 2026-02-31 geçersiz) doğrulanır.
+ */
+export function isValidDateParam(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  )
+}
+
+/**
+ * Kullanıcının seçtiği özel başlangıç/bitiş tarihlerini ISO string'lere çevirir.
+ * Aralık dahildir (inclusive): başlangıç günün başı (00:00:00),
+ * bitiş ise günün sonu (23:59:59.999). Yerel saate göre hesaplanır.
+ */
+export function getCustomDateRange(
+  startParam: string,
+  endParam: string
+): { start: string; end: string } {
+  const [sy, sm, sd] = startParam.split('-').map(Number)
+  const [ey, em, ed] = endParam.split('-').map(Number)
+
+  const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0)
+  const end = new Date(ey, em - 1, ed, 23, 59, 59, 999)
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  }
+}
+
+/**
+ * Özel aralık için sayfa başlığında gösterilecek etiketi üretir.
+ * Örnek: "5 Haz – 9 Haz".
+ */
+export function formatCustomRangeLabel(
+  startParam: string,
+  endParam: string
+): string {
+  const label = (value: string) => {
+    const [, month, day] = value.split('-').map(Number)
+    return `${day} ${SHORT_MONTHS[month - 1]}`
+  }
+  return `${label(startParam)} – ${label(endParam)}`
+}

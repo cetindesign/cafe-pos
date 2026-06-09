@@ -74,9 +74,17 @@ header'ındaki "Yönetim" dropdown'undan (SettingsMenu) menü/masa/raporlara eri
   status ('open'|'paid'|'cancelled'), payment_method ('cash'|'card', nullable),
   created_at, closed_at (nullable)
 - order_items: id, order_id (FK orders, CASCADE), product_id (FK products, restrict),
-  quantity (int > 0), unit_price (numeric 10,2), created_at
+  quantity (int > 0), unit_price (numeric 10,2), note (text, nullable), created_at
+- payments: id, order_id (FK orders, CASCADE), amount (numeric 10,2),
+  method ('cash'|'card'), created_at. Her paid siparişin en az bir ödeme satırı var.
 
 Önemli kararlar:
+- Hesap kapatma public.close_order_with_payments(p_order_id, p_payments jsonb) RPC'si
+  üzerinden atomik yapılır: ödemeleri payments tablosuna yazar, tutarı sunucuda doğrular
+  (ödemeler toplamı = hesap tutarı) ve siparişi 'paid' yapar. Hesap bölme (eşit; karışık
+  nakit/kart) desteklenir. orders.payment_method artık set edilmez (legacy).
+- Raporlarda nakit/kart dağılımı payments tablosundan hesaplanır;
+  orders.payment_method legacy'dir (artık bu split için kullanılmaz).
 - Soft delete: ürün/kategori silinmez, is_available = false ile gizlenir.
   Geçmiş raporların bozulmaması için.
 - Denormalize fiyat: order_items.unit_price, ürün eklenirken o anki fiyatı kopyalar.

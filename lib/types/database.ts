@@ -49,5 +49,6 @@ export type OrderItem = {
   product_id: string
   quantity: number
   unit_price: number
+  note: string | null
   created_at: string
 }

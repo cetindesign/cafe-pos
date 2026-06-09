@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react'
 export default async function OrderSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ method?: string; total?: string }>
+  searchParams: Promise<{ total?: string; cash?: string; card?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -17,8 +17,13 @@ export default async function OrderSuccessPage({
 
   if (!user) redirect('/login')
 
-  const method = params.method === 'card' ? 'Kart' : 'Nakit'
   const total = params.total || '0.00'
+  const cash = Number(params.cash) || 0
+  const card = Number(params.card) || 0
+
+  // Dağılım: hem nakit hem kart varsa bölünmüş göster; tek yöntemse onu göster.
+  const isSplit = cash > 0 && card > 0
+  const singleMethodLabel = card > 0 ? 'Kart ile ödendi' : 'Nakit ile ödendi'
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
@@ -39,12 +44,21 @@ export default async function OrderSuccessPage({
               {total} ₺
             </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-neutral-500">Ödeme Yöntemi</span>
-            <span className="text-sm font-medium text-brand-primary">
-              {method}
-            </span>
-          </div>
+          {isSplit ? (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-neutral-500">Ödeme Dağılımı</span>
+              <span className="text-sm font-medium text-brand-primary">
+                Nakit: {cash.toFixed(2)} ₺ · Kart: {card.toFixed(2)} ₺
+              </span>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-neutral-500">Ödeme Yöntemi</span>
+              <span className="text-sm font-medium text-brand-primary">
+                {singleMethodLabel}
+              </span>
+            </div>
+          )}
         </div>
 
         <Link

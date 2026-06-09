@@ -19,6 +19,30 @@ async function assertAuthenticated() {
 }
 
 /**
+ * Bir masanın adını günceller. Sadece isim değişir; section'a dokunulmaz.
+ * Yetki (yalnızca manager yazabilir) kontrolü RLS tarafından yapılır.
+ */
+export async function renameTable(tableId: string, newName: string) {
+  const { supabase } = await assertAuthenticated()
+
+  const trimmed = newName.trim()
+  if (!trimmed) {
+    throw new Error('Masa adı boş olamaz.')
+  }
+
+  const { error } = await supabase
+    .from('tables')
+    .update({ name: trimmed })
+    .eq('id', tableId)
+
+  if (error) {
+    throw new Error('Masa adı güncellenemedi.')
+  }
+
+  revalidatePath('/pos')
+}
+
+/**
  * Bir masa için sipariş açar veya mevcut açık siparişi döner.
  */
 export async function getOrCreateOrderForTable(tableId: string) {
@@ -168,6 +192,32 @@ export async function decreaseItemQuantity(itemId: string, orderId: string) {
 }
 
 /**
+ * Bir kalemin notunu günceller. Boş not NULL'a çekilir (not temizlenir).
+ * Yetki kontrolü RLS tarafından yapılır.
+ */
+export async function setItemNote(
+  itemId: string,
+  orderId: string,
+  note: string
+) {
+  const { supabase } = await assertAuthenticated()
+
+  const trimmed = note.trim()
+  const value = trimmed === '' ? null : trimmed
+
+  const { error } = await supabase
+    .from('order_items')
+    .update({ note: value })
+    .eq('id', itemId)
+
+  if (error) {
+    throw new Error('Not kaydedilemedi.')
+  }
+
+  revalidatePath(`/pos/orders/${orderId}`)
+}
+
+/**
  * Bir kalemi tamamen siler.
  */
 export async function removeItem(itemId: string, orderId: string) {
@@ -186,52 +236,35 @@ export async function removeItem(itemId: string, orderId: string) {
 }
 
 /**
- * Bir siparişi kapatır (ödendi durumuna geçirir).
- * Boş sipariş kapatılamaz.
+ * Bir siparişi atomik olarak kapatır ve ödemeleri payments tablosuna yazar.
+ * Tüm doğrulama (ödemeler toplamı = hesap tutarı, zaten kapalı mı, boş mu)
+ * close_order_with_payments RPC'si tarafından sunucuda yapılır; geçersizse
+ * exception fırlatır. payment_method (legacy) artık burada set edilmez.
  */
 export async function closeOrder(
   orderId: string,
-  paymentMethod: 'cash' | 'card'
+  payments: { method: 'cash' | 'card'; amount: number }[]
 ) {
   const { supabase } = await assertAuthenticated()
 
-  // Sipariş hâlâ açık mı kontrol et
-  const { data: order } = await supabase
-    .from('orders')
-    .select('id, status')
-    .eq('id', orderId)
-    .single()
-
-  if (!order) {
-    throw new Error('Sipariş bulunamadı.')
-  }
-
-  if (order.status !== 'open') {
-    throw new Error('Bu sipariş zaten kapatılmış.')
-  }
-
-  // Sipariş kalemleri var mı?
-  const { count } = await supabase
-    .from('order_items')
-    .select('*', { count: 'exact', head: true })
-    .eq('order_id', orderId)
-
-  if (!count || count === 0) {
-    throw new Error('Boş sipariş kapatılamaz. Önce ürün ekleyin.')
-  }
-
-  // Kapat
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status: 'paid',
-      payment_method: paymentMethod,
-      closed_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
+  const { error } = await supabase.rpc('close_order_with_payments', {
+    p_order_id: orderId,
+    p_payments: payments,
+  })
 
   if (error) {
-    throw new Error('Sipariş kapatılamadı.')
+    // RPC exception'ını kullanıcıya gösterilebilir nazik bir mesaja çevir.
+    const message = error.message || ''
+    if (message.includes('already') || message.includes('zaten')) {
+      throw new Error('Bu sipariş zaten kapatılmış.')
+    }
+    if (message.includes('empty') || message.includes('boş')) {
+      throw new Error('Boş sipariş kapatılamaz. Önce ürün ekleyin.')
+    }
+    if (message.includes('mismatch') || message.includes('amount')) {
+      throw new Error('Ödeme tutarları hesap tutarıyla eşleşmiyor.')
+    }
+    throw new Error('Sipariş kapatılamadı. Lütfen tekrar deneyin.')
   }
 
   revalidatePath('/pos')

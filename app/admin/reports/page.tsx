@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import {
   DATE_RANGE_LABELS,
   getDateRange,
+  getCustomDateRange,
   isValidDateRange,
+  isValidDateParam,
+  formatCustomRangeLabel,
   type DateRange,
 } from '@/lib/date-ranges'
 import RangeSelector from './RangeSelector'
@@ -26,16 +29,30 @@ type OrderRow = {
   payment_method: 'cash' | 'card' | null
   closed_at: string | null
   order_items: OrderItem[] | null
+  payments: { amount: number; method: 'cash' | 'card' }[] | null
 }
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>
+  searchParams: Promise<{ range?: string; start?: string; end?: string }>
 }) {
   const params = await searchParams
   const range: DateRange =
     params.range && isValidDateRange(params.range) ? params.range : 'today'
+
+  // Özel aralık paramları (start/end) geçerliyse preset'i ezer.
+  const startParam = params.start
+  const endParam = params.end
+  const hasCustomDates =
+    !!startParam &&
+    !!endParam &&
+    isValidDateParam(startParam) &&
+    isValidDateParam(endParam)
+
+  // Başlangıç bitişten büyükse sorgu çalıştırmadan uyarı gösterilecek.
+  const invalidCustomOrder = hasCustomDates && startParam! > endParam!
+  const useCustom = hasCustomDates && !invalidCustomOrder
 
   const supabase = await createClient()
 
@@ -53,12 +70,23 @@ export default async function ReportsPage({
 
   if (!profile || profile.role !== 'manager') redirect('/pos')
 
-  const { start, end } = getDateRange(range)
+  // Özel aralık geçerliyse onu, değilse preset aralığını kullan.
+  const { start, end } = useCustom
+    ? getCustomDateRange(startParam!, endParam!)
+    : getDateRange(range)
 
-  const { data: orders } = await supabase
-    .from('orders')
-    .select(
-      `
+  // Başlık etiketi: özel aralıkta seçilen tarihler, değilse preset adı.
+  const rangeLabel = useCustom
+    ? formatCustomRangeLabel(startParam!, endParam!)
+    : DATE_RANGE_LABELS[range]
+
+  // Geçersiz aralıkta (başlangıç > bitiş) sorgu çalıştırmayız.
+  const { data: orders } = invalidCustomOrder
+    ? { data: [] }
+    : await supabase
+        .from('orders')
+        .select(
+          `
       id,
       cashier_id,
       payment_method,
@@ -68,12 +96,16 @@ export default async function ReportsPage({
         unit_price,
         product_id,
         products ( name )
+      ),
+      payments (
+        amount,
+        method
       )
     `
-    )
-    .eq('status', 'paid')
-    .gte('closed_at', start)
-    .lte('closed_at', end)
+        )
+        .eq('status', 'paid')
+        .gte('closed_at', start)
+        .lte('closed_at', end)
 
   const { data: cashiers } = await supabase
     .from('profiles')
@@ -116,8 +148,14 @@ export default async function ReportsPage({
     }
 
     totalRevenue += orderTotal
-    if (order.payment_method === 'cash') cashRevenue += orderTotal
-    if (order.payment_method === 'card') cardRevenue += orderTotal
+
+    // Nakit/kart dağılımı artık payments tablosundan hesaplanır
+    // (orders.payment_method legacy). Bir siparişin birden çok ödemesi olabilir.
+    for (const payment of order.payments || []) {
+      const amount = Number(payment.amount)
+      if (payment.method === 'cash') cashRevenue += amount
+      if (payment.method === 'card') cardRevenue += amount
+    }
 
     const cashierName = cashierNames[order.cashier_id] || 'Bilinmeyen'
     if (cashierStats[order.cashier_id]) {
@@ -159,13 +197,24 @@ export default async function ReportsPage({
               Raporlar
             </h1>
             <p className="text-sm text-neutral-500 mt-1">
-              {DATE_RANGE_LABELS[range]} için satış özeti
+              {rangeLabel} için satış özeti
             </p>
           </div>
-          <RangeSelector current={range} />
+          <RangeSelector
+            current={range}
+            customStart={startParam}
+            customEnd={endParam}
+          />
         </div>
 
-        {orderCount === 0 ? (
+        {invalidCustomOrder ? (
+          <div className="bg-white rounded-2xl border border-brand-border p-10 text-center">
+            <p className="text-neutral-500">
+              Başlangıç tarihi bitiş tarihinden sonra olamaz. Lütfen aralığı
+              düzeltin.
+            </p>
+          </div>
+        ) : orderCount === 0 ? (
           <div className="bg-white rounded-2xl border border-brand-border p-10 text-center">
             <p className="text-neutral-500">
               Bu aralıkta kapanmış sipariş yok.
