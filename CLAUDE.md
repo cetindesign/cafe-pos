@@ -127,9 +127,46 @@ manager'ı kapsadığından emin ol (order_items'ta bu unutulmuştu, 500 hatası
   Manuel insert gerekir (ileride trigger yazılabilir).
 - Vercel build, dev'den katı. Push öncesi MUTLAKA `npm run build` çalıştır.
 
-## V2 Roadmap (bilinçli ertelenenler)
+## Yol Haritası / Öncelikler
 
-Hesap bölme, indirim sistemi, raporlarda özel tarih aralığı (calendar picker),
-masa ismini POS'tan inline düzenleme, sipariş notları, yazıcı entegrasyonu,
-POS cihazı entegrasyonu, stok yönetimi, mutfak ekranı (KDS), sadakat programı,
-çoklu şube, eski açık siparişleri otomatik temizleyen cron job.
+### Tamamlandı (canlıda)
+- V1: auth + roller, menü yönetimi, bölgeli masa yönetimi, sipariş alma, nakit/kart ödeme,
+  raporlar, brand kimliği.
+- Raporlarda özel tarih aralığı (calendar picker) + hızlı filtrelerle karşılıklı dışlayıcılık.
+- Masa ismini POS'tan düzenleme (yönetici).
+- Sipariş kalemi notları.
+- Performans: sipariş ekranında optimistic UI (+/−, ekle, sil) — OrderWorkspace wrapper.
+- Raporlar nakit/kart dağılımını payments tablosundan okuyor.
+- Hesap bölme: payments tablosu + atomik close_order_with_payments RPC + bölme UI
+  (eşit, karışık nakit/kart), raporlarla tutarlı.
+
+### Bekleyen (detay gelince)
+- Hesap bölme revizyonu — gerçek kullanıcı (Ozan) geri bildirimine göre UX/davranış ayarı.
+  Detay gelene kadar canlı sürüm olduğu gibi kalıyor.
+
+### P0 — Stabilite (yeni özelliklerden önce)
+- Tutarlı hata geri bildirimi: başarısız aksiyonları kullanıcıya gösteren UI (toast/satır içi);
+  şu an çoğu hata sessizce console.error'a düşüyor.
+- Yeni kullanıcıda profili otomatik oluştur: Supabase trigger (handle_new_user); manuel adımı kaldırır.
+- Eşzamanlılık koruması: aynı masaya eşzamanlı tıklamada çift açık sipariş oluşmasını engelle
+  (açık sipariş için unique kısıt).
+
+### P1 — Operasyonel sağlamlık & tekrarlanabilirlik
+- Şemayı repoya al (schema.sql veya migration dosyaları) + tipleri Supabase'den üret
+  (supabase gen types). Not: payments tablosu, RPC ve note kolonu ad-hoc eklendi; repoda
+  toplamak giderek değerli.
+- Eski açık siparişleri otomatik temizleyen cron.
+- Hata izleme (Sentry) + yedeklerin açık olduğundan emin olmak.
+
+### P2 — Yüksek değerli özellikler
+- İndirim sistemi: sipariş bazında, % + sabit tutar, kapatırken, rapor-güvenli denormalize
+  discount_amount. NOT: artık payments/kapanış akışıyla bütünleşmeli — ödemelerin toplaması
+  gereken tutar "indirimli toplam" olur, yani close_order_with_payments mantığına dokunur.
+- Fiş/yazıcı çıktısı (mutfak + müşteri) — yazıcı donanımına bağlı.
+
+### P3 — Daha büyük / ölçek
+- Stok yönetimi, mutfak ekranı (KDS), sadakat programı, çoklu şube.
+- Kalem bazında rafine etmeler: kalem bazında bölme / not / indirim (eşit/sipariş bazından sonra).
+
+### Donanım / saf yazılım değil
+- Termal yazıcı entegrasyonu, kart POS cihazı entegrasyonu (donanım/anlaşma gerektirir).

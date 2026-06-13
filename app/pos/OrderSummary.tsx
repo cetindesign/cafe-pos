@@ -1,15 +1,26 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { setItemNote, closeOrder } from './actions'
-import { Plus, Minus, X, Loader2, StickyNote } from 'lucide-react'
-import type { OrderItemWithProduct } from './OrderWorkspace'
+import { setItemNote, addPayment } from './actions'
+import {
+  Plus,
+  Minus,
+  X,
+  Loader2,
+  StickyNote,
+  Banknote,
+  CreditCard,
+  Check,
+} from 'lucide-react'
+import type { OrderItemWithProduct, OrderPayment } from './OrderWorkspace'
 
 type Props = {
   orderId: string
   // Zaten optimistik olan sepet (OrderWorkspace'ten gelir)
   items: OrderItemWithProduct[]
+  // Siparişe şimdiye kadar alınmış ödemeler (sunucudan; modal lokal state'i bununla başlatır)
+  payments: OrderPayment[]
   cartError: string | null
   onIncrease: (id: string) => void
   onDecrease: (id: string) => void
@@ -19,61 +30,111 @@ type Props = {
 export default function OrderSummary({
   orderId,
   items,
+  payments,
   cartError,
   onIncrease,
   onDecrease,
   onRemove,
 }: Props) {
-  const router = useRouter()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
-  const [splitMode, setSplitMode] = useState(false)
-  const [personCount, setPersonCount] = useState(2)
-  const [cashPersons, setCashPersons] = useState(1)
+  // Açık modal için lokal ödeme listesi. Tek doğruluk kaynağı sunucudaki
+  // add_payment_to_order; bu state yalnızca onu ekranda yansıtır.
+  const [collected, setCollected] = useState<OrderPayment[]>(payments)
+  const [payMethod, setPayMethod] = useState<'cash' | 'card'>('cash')
+  const [amountInput, setAmountInput] = useState('')
+  const [closed, setClosed] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // Lokal ödeme satırlarına benzersiz key üretmek için sayaç.
+  const localIdRef = useRef(0)
 
   const total = items.reduce(
     (sum, item) => sum + Number(item.unit_price) * item.quantity,
     0
   )
-
   const hasItems = items.length > 0
 
-  // Tutarları 2 ondalığa sabitle. Bölmede toplam birebir tutsun diye kart = kalan.
+  // Tutarlar 2 haneye sabit. Kalan = round(toplam − alınan ödemeler).
   const totalR = Number(total.toFixed(2))
-  const personCountSafe = Math.max(2, Math.floor(personCount) || 2)
-  const cashPersonsSafe = Math.min(
-    personCountSafe,
-    Math.max(0, Math.floor(cashPersons) || 0)
+  const paid = Number(
+    collected.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2)
   )
-  const perPerson = totalR / personCountSafe
-  const splitCash =
-    Math.round((cashPersonsSafe / personCountSafe) * totalR * 100) / 100
-  const splitCard = Math.round((totalR - splitCash) * 100) / 100
+  const remaining = Number((totalR - paid).toFixed(2))
+  const progressPct =
+    totalR > 0 ? Math.min(100, Math.max(0, (paid / totalR) * 100)) : 0
 
-  function handleConfirmPayment() {
+  const cashTotal = Number(
+    collected
+      .filter((p) => p.method === 'cash')
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .toFixed(2)
+  )
+  const cardTotal = Number(
+    collected
+      .filter((p) => p.method === 'card')
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .toFixed(2)
+  )
+
+  const parsedAmount = Number((amountInput || '').replace(',', '.'))
+  const canCollect = !isPending && remaining > 0 && parsedAmount > 0
+
+  function openPaymentModal() {
     setError(null)
+    setClosed(false)
+    setCollected(payments)
+    setPayMethod('cash')
+    // Varsayılan tutar = kalan (tek seferde kapatma kolaylığı için).
+    const rem = Number((totalR - Number(
+      payments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)
+    )).toFixed(2))
+    setAmountInput(rem > 0 ? rem.toFixed(2) : '')
+    setShowPaymentModal(true)
+  }
 
-    // Moda göre nakit/kart tutarlarını belirle
-    const cash = splitMode ? splitCash : paymentMethod === 'cash' ? totalR : 0
-    const card = splitMode ? splitCard : paymentMethod === 'card' ? totalR : 0
+  // Modal her kapanışında TAM SAYFA reload: kapandıysa masa listesine (masa boşalsın),
+  // kısmen ödenmiş açık kaldıysa mevcut siparişi tazele (diğer görünümler güncel olsun).
+  function fullReload() {
+    window.location.href = closed ? '/pos' : window.location.pathname
+  }
 
-    const payments: { method: 'cash' | 'card'; amount: number }[] = []
-    if (cash > 0) payments.push({ method: 'cash', amount: cash })
-    if (card > 0) payments.push({ method: 'card', amount: card })
+  function handleCollect() {
+    setError(null)
+    if (!canCollect) return
+
+    // Tutarı kalana kıs; 0/boşsa hiçbir şey yapma (sunucu da fazlayı reddeder).
+    const amount = Number(Math.min(parsedAmount, remaining).toFixed(2))
+    if (amount <= 0) return
+
+    const method = payMethod
 
     startTransition(async () => {
       try {
-        await closeOrder(orderId, payments)
-        router.push(
-          `/pos/orders/${orderId}/success?total=${totalR.toFixed(
-            2
-          )}&cash=${cash.toFixed(2)}&card=${card.toFixed(2)}`
-        )
+        const result = await addPayment(orderId, amount, method)
+
+        // Başarılı: ödemeyi lokal listeye ekle (kalan otomatik güncellenir).
+        localIdRef.current += 1
+        const newRemaining = Number((remaining - amount).toFixed(2))
+        setCollected((prev) => [
+          ...prev,
+          {
+            id: `local-${localIdRef.current}`,
+            amount,
+            method,
+            created_at: '',
+          },
+        ])
+
+        if (result.closed) {
+          // Kalan 0'a indi: başarı ekranı + (Kapat'ta) tam sayfa reload.
+          setClosed(true)
+        } else {
+          // Input'u yeni kalana sıfırla.
+          setAmountInput(newRemaining > 0 ? newRemaining.toFixed(2) : '')
+        }
       } catch (e) {
         const message =
-          e instanceof Error ? e.message : 'Ödeme işlemi başarısız.'
+          e instanceof Error ? e.message : 'Ödeme alınamadı.'
         setError(message)
       }
     })
@@ -127,7 +188,7 @@ export default function OrderSummary({
             </span>
           </div>
           <button
-            onClick={() => setShowPaymentModal(true)}
+            onClick={openPaymentModal}
             disabled={!hasItems}
             className="w-full rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors"
           >
@@ -138,180 +199,188 @@ export default function OrderSummary({
 
       {showPaymentModal && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-          onClick={() => !isPending && setShowPaymentModal(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => !isPending && fullReload()}
         >
           <div
-            className="bg-white rounded-2xl border border-brand-border shadow-xl max-w-md w-full p-8"
+            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-serif text-2xl font-bold text-brand-primary mb-2">
-              Hesap Kapat
-            </h3>
-            <p className="text-sm text-neutral-500 mb-6">
-              Toplam{' '}
-              <span className="font-semibold text-brand-primary">
-                {totalR.toFixed(2)} ₺
-              </span>{' '}
-              tahsil edilecek.
-            </p>
-
-            {/* Mod seçimi: Tek ödeme / Böl */}
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              <button
-                onClick={() => setSplitMode(false)}
-                disabled={isPending}
-                className={`
-                  rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors
-                  ${
-                    !splitMode
-                      ? 'bg-brand-primary text-white border-brand-primary'
-                      : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
-                  }
-                  disabled:opacity-50
-                `}
-              >
-                Tek ödeme
-              </button>
-              <button
-                onClick={() => setSplitMode(true)}
-                disabled={isPending}
-                className={`
-                  rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors
-                  ${
-                    splitMode
-                      ? 'bg-brand-primary text-white border-brand-primary'
-                      : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
-                  }
-                  disabled:opacity-50
-                `}
-              >
-                Böl
-              </button>
-            </div>
-
-            {!splitMode ? (
-              /* TEK ÖDEME: Nakit / Kart */
-              <div className="space-y-2 mb-6">
-                <p className="text-sm font-medium text-brand-primary">
-                  Ödeme Yöntemi
+            {closed ? (
+              /* BAŞARI EKRANI: hesap kapandı */
+              <div className="px-6 py-10 text-center">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+                  <Check className="h-7 w-7" strokeWidth={2.5} />
+                </span>
+                <h3 className="font-serif text-xl font-bold text-brand-primary mt-4">
+                  Hesap kapatıldı
+                </h3>
+                <p className="text-sm text-neutral-500 mt-2">
+                  Nakit {cashTotal.toFixed(2)} ₺ · Kart {cardTotal.toFixed(2)} ₺
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    disabled={isPending}
-                    className={`
-                      rounded-lg border px-4 py-3 text-sm font-medium transition-colors
-                      ${
-                        paymentMethod === 'cash'
-                          ? 'bg-brand-primary text-white border-brand-primary'
-                          : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
-                      }
-                      disabled:opacity-50
-                    `}
-                  >
-                    Nakit
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    disabled={isPending}
-                    className={`
-                      rounded-lg border px-4 py-3 text-sm font-medium transition-colors
-                      ${
-                        paymentMethod === 'card'
-                          ? 'bg-brand-primary text-white border-brand-primary'
-                          : 'bg-white text-neutral-600 border-brand-border hover:bg-brand-muted'
-                      }
-                      disabled:opacity-50
-                    `}
-                  >
-                    Kart
-                  </button>
-                </div>
+                <button
+                  onClick={fullReload}
+                  className="mt-7 w-full rounded-xl bg-brand-primary px-4 py-3.5 text-sm font-semibold text-white hover:bg-neutral-800 transition-colors"
+                >
+                  Kapat
+                </button>
               </div>
             ) : (
-              /* BÖL: eşit bölme, kaç kişi nakit ödüyor */
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label
-                    htmlFor="person-count"
-                    className="block text-sm font-medium text-brand-primary mb-1"
-                  >
-                    Kişi sayısı
-                  </label>
-                  <input
-                    id="person-count"
-                    type="number"
-                    min={2}
-                    value={personCount}
-                    onChange={(e) => setPersonCount(Number(e.target.value))}
+              <>
+                {/* Başlık + kapat */}
+                <div className="flex items-center justify-between px-6 pt-5">
+                  <h3 className="font-serif text-lg font-bold text-brand-primary">
+                    Hesap Kapat
+                  </h3>
+                  <button
+                    onClick={fullReload}
                     disabled={isPending}
-                    className="w-full rounded-lg border border-brand-border px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow disabled:opacity-50"
-                  />
-                  <p className="text-xs text-neutral-500 mt-1">
-                    Kişi başı: {perPerson.toFixed(2)} ₺
+                    className="-mr-1.5 rounded-full p-1.5 text-neutral-400 hover:bg-brand-muted hover:text-brand-primary transition-colors disabled:opacity-50"
+                    aria-label="Kapat"
+                  >
+                    <X className="w-5 h-5" strokeWidth={2} />
+                  </button>
+                </div>
+
+                {/* Kalan — en üstte, büyük, ortada, serif */}
+                <div className="px-6 pt-4 pb-5 text-center">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
+                    Kalan
+                  </p>
+                  <p className="font-serif text-[2.75rem] leading-none font-bold text-brand-primary mt-2">
+                    {remaining.toFixed(2)}{' '}
+                    <span className="text-2xl text-brand-accent">₺</span>
+                  </p>
+                  {/* İlerleme çubuğu: tahsil edilen / toplam */}
+                  <div className="mt-4">
+                    <div className="h-1.5 w-full rounded-full bg-brand-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-brand-accent transition-all"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-2">
+                      {paid.toFixed(2)} ₺ / {totalR.toFixed(2)} ₺ tahsil edildi
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-6 pb-6 space-y-5">
+                  {/* Alınan ödemeler listesi (salt okunur) */}
+                  {collected.length > 0 && (
+                    <div className="rounded-2xl border border-brand-border divide-y divide-brand-border overflow-hidden">
+                      {collected.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between px-4 py-2.5 text-sm"
+                        >
+                          <span className="flex items-center gap-2 text-neutral-600">
+                            {p.method === 'cash' ? (
+                              <Banknote className="w-4 h-4" strokeWidth={1.75} />
+                            ) : (
+                              <CreditCard
+                                className="w-4 h-4"
+                                strokeWidth={1.75}
+                              />
+                            )}
+                            {p.method === 'cash' ? 'Nakit' : 'Kart'}
+                          </span>
+                          <span className="font-semibold text-brand-primary tabular-nums">
+                            {Number(p.amount).toFixed(2)} ₺
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Ödeme al */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-brand-primary">
+                        Ödeme al
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAmountInput(remaining > 0 ? remaining.toFixed(2) : '')
+                        }
+                        disabled={isPending || remaining <= 0}
+                        className="text-xs font-medium text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-40"
+                      >
+                        Kalanın tamamı
+                      </button>
+                    </div>
+
+                    {/* Tutar input'u */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="0.01"
+                        value={amountInput}
+                        onChange={(e) => setAmountInput(e.target.value)}
+                        disabled={isPending || remaining <= 0}
+                        placeholder="0.00"
+                        className="w-full rounded-xl border border-brand-border bg-white pl-4 pr-9 py-3 text-lg font-semibold text-brand-primary tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow disabled:opacity-50"
+                      />
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-brand-accent">
+                        ₺
+                      </span>
+                    </div>
+
+                    {/* Nakit / Kart seçici (küçük) */}
+                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-brand-muted">
+                      {[
+                        { key: 'cash' as const, label: 'Nakit', Icon: Banknote },
+                        {
+                          key: 'card' as const,
+                          label: 'Kart',
+                          Icon: CreditCard,
+                        },
+                      ].map(({ key, label, Icon }) => {
+                        const active = payMethod === key
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setPayMethod(key)}
+                            disabled={isPending}
+                            className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 ${
+                              active
+                                ? 'bg-white text-brand-primary shadow-sm'
+                                : 'text-neutral-500 hover:text-brand-primary'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" strokeWidth={1.75} />
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Tahsil et */}
+                    <button
+                      onClick={handleCollect}
+                      disabled={!canCollect}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-3.5 text-sm font-semibold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {isPending ? 'İşleniyor...' : 'Tahsil et'}
+                    </button>
+                  </div>
+
+                  {error && (
+                    <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-neutral-400 text-center">
+                    Modalı kapatsan da sipariş kısmen ödenmiş açık kalır.
                   </p>
                 </div>
-
-                <div>
-                  <label
-                    htmlFor="cash-persons"
-                    className="block text-sm font-medium text-brand-primary mb-1"
-                  >
-                    Kaç kişi nakit ödüyor?
-                  </label>
-                  <input
-                    id="cash-persons"
-                    type="number"
-                    min={0}
-                    max={personCountSafe}
-                    value={cashPersons}
-                    onChange={(e) => setCashPersons(Number(e.target.value))}
-                    disabled={isPending}
-                    className="w-full rounded-lg border border-brand-border px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow disabled:opacity-50"
-                  />
-                  <p className="text-xs text-neutral-500 mt-1">
-                    {personCountSafe - cashPersonsSafe} kişi kart ödüyor
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-brand-muted p-3 text-sm text-brand-primary">
-                  Nakit:{' '}
-                  <span className="font-semibold">
-                    {splitCash.toFixed(2)} ₺
-                  </span>{' '}
-                  ·{' '}
-                  Kart:{' '}
-                  <span className="font-semibold">
-                    {splitCard.toFixed(2)} ₺
-                  </span>
-                </div>
-              </div>
+              </>
             )}
-
-            {error && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                disabled={isPending}
-                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors disabled:opacity-50"
-              >
-                Vazgeç
-              </button>
-              <button
-                onClick={handleConfirmPayment}
-                disabled={isPending}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
-              >
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isPending ? 'İşleniyor...' : 'Onayla'}
-              </button>
-            </div>
           </div>
         </div>
       )}

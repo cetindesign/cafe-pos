@@ -22,7 +22,7 @@ export default async function OrderDetailPage({
 
   const { data: order } = await supabase
     .from('orders')
-    .select('*, tables(name, section)')
+    .select('*, tables(name, section), payments(id, amount, method, created_at)')
     .eq('id', id)
     .single()
 
@@ -60,6 +60,23 @@ export default async function OrderDetailPage({
     }
   })
 
+  // Şimdiye kadar alınan ödemeler (modal'daki "Kalan" + ödeme listesi için).
+  type RawPayment = {
+    id: string
+    amount: number | string
+    method: string
+    created_at: string
+  }
+  const orderPayments: RawPayment[] = Array.isArray(order.payments)
+    ? order.payments
+    : []
+  const normalizedPayments = orderPayments.map((p) => ({
+    id: p.id,
+    amount: Number(p.amount),
+    method: p.method as 'cash' | 'card',
+    created_at: p.created_at,
+  }))
+
   const tableInfo = Array.isArray(order.tables) ? order.tables[0] : order.tables
   const isEmpty = normalizedItems.length === 0
 
@@ -86,6 +103,7 @@ export default async function OrderDetailPage({
       <OrderWorkspace
         orderId={id}
         items={normalizedItems}
+        payments={normalizedPayments}
         categories={categories || []}
         products={products || []}
       />

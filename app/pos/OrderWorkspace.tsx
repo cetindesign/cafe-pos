@@ -24,6 +24,14 @@ export type OrderItemWithProduct = {
   } | null
 }
 
+// Siparişe şimdiye kadar alınmış bir ödeme (payments tablosundan).
+export type OrderPayment = {
+  id: string
+  amount: number
+  method: 'cash' | 'card'
+  created_at: string
+}
+
 // Optimistik sepet aksiyonları
 type CartAction =
   | { type: 'increase'; id: string }
@@ -86,6 +94,7 @@ function cartReducer(
 type Props = {
   orderId: string
   items: OrderItemWithProduct[]
+  payments: OrderPayment[]
   categories: Category[]
   products: Product[]
 }
@@ -93,6 +102,7 @@ type Props = {
 export default function OrderWorkspace({
   orderId,
   items,
+  payments,
   categories,
   products,
 }: Props) {
@@ -164,6 +174,7 @@ export default function OrderWorkspace({
       <OrderSummary
         orderId={orderId}
         items={optimisticItems}
+        payments={payments}
         cartError={cartError}
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}

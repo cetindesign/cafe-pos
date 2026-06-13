@@ -272,6 +272,64 @@ export async function closeOrder(
 }
 
 /**
+ * Açık bir siparişin bakiyesine karşı TEK BİR ödeme alır (zaman içinde tahsilat).
+ * Tüm doğrulama sunucuda add_payment_to_order RPC'sinde yapılır:
+ * siparişi kilitler, kalanı yeniden hesaplar, fazla tahsilatı reddeder, ödemeyi
+ * payments tablosuna yazar ve kalan 0'a inince siparişi atomik 'paid' yapar.
+ * Dönüş: { remaining, closed } — UI bunu listeyi/kalanı güncellemek için kullanır.
+ */
+export async function addPayment(
+  orderId: string,
+  amount: number,
+  method: 'cash' | 'card'
+): Promise<{ remaining: number; closed: boolean }> {
+  const { supabase } = await assertAuthenticated()
+
+  const { data, error } = await supabase.rpc('add_payment_to_order', {
+    p_order_id: orderId,
+    p_amount: amount,
+    p_method: method,
+  })
+
+  if (error) {
+    // Gerçek hatayı sunucu loguna yaz (teşhis için sessiz kalmasın).
+    console.error('add_payment_to_order error:', error.code, error.message)
+
+    // RPC exception'ını kullanıcıya gösterilebilir nazik bir mesaja çevir.
+    const message = error.message || ''
+    if (
+      message.includes('kalandan') ||
+      message.includes('büyük') ||
+      message.includes('overpay') ||
+      message.includes('exceed')
+    ) {
+      throw new Error('Tahsil edilen tutar kalandan fazla olamaz.')
+    }
+    if (
+      message.includes('zaten') ||
+      message.includes('kapalı') ||
+      message.includes('already') ||
+      message.includes('paid')
+    ) {
+      throw new Error('Bu sipariş zaten kapatılmış.')
+    }
+    throw new Error('Ödeme alınamadı. Lütfen tekrar deneyin.')
+  }
+
+  // DİKKAT: Burada revalidatePath ÇAĞIRMA. Sipariş kapandığında bu, sipariş
+  // ekranını anında yeniden çektirir; sipariş artık 'paid' olduğu için
+  // page.tsx notFound() ile 404'e düşer ve başarı modalını siler. Modal zaten
+  // her kapanışta tam sayfa reload (window.location.href) yapıp veriyi tazeliyor.
+
+  // RPC jsonb döner: { "remaining": <numeric>, "closed": <bool> }
+  const result = (data ?? {}) as { remaining?: number; closed?: boolean }
+  return {
+    remaining: Number(result.remaining ?? 0),
+    closed: Boolean(result.closed),
+  }
+}
+
+/**
  * Bir siparişi iptal eder (sadece içinde kalem yoksa).
  * Yanlış masaya tıklama senaryosu için.
  */
