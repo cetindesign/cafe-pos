@@ -352,5 +352,9 @@ export async function cancelEmptyOrder(orderId: string) {
     throw new Error('Sipariş iptal edilemedi.')
   }
 
-  revalidatePath('/pos')
+  // DİKKAT: Burada revalidatePath ÇAĞIRMA. Sipariş silindikten sonra bu, o anki
+  // sipariş ekranını yeniden çektirir; sipariş artık yok olduğu için page.tsx
+  // notFound() ile 404'e düşer (geri dönüşte görünen "arada 404" flash'ı buydu).
+  // Çağıranlar (BackToTablesLink / CancelEmptyOrderButton) zaten window.location.href
+  // ile /pos'a tam reload yapıyor, masa listesi taze geliyor.
 }
