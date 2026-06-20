@@ -18,30 +18,33 @@ export default async function PosPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) redirect('/login')
-
-  const { data: tables } = await supabase
-    .from('tables')
-    .select('*')
-    .eq('is_active', true)
-    .order('section', { ascending: true })
-    .order('display_order', { ascending: true })
-
-  // Açık siparişleri kalemleriyle çek (tutarı hesaplamak için)
-  const { data: openOrders } = await supabase
-    .from('orders')
-    .select(`
+  // profiles, tables ve openOrders birbirinden bağımsız → PARALEL (önceden 3
+  // sıralı await'ti). profiles user.id'ye bağlı olduğu için getUser'dan sonra,
+  // ama diğer ikisiyle aynı anda çalışıyor. Çekilen veri/filtre/sıralama aynı.
+  const [profileRes, tablesRes, openOrdersRes] = await Promise.all([
+    supabase.from('profiles').select('full_name, role').eq('id', user.id).single(),
+    supabase
+      .from('tables')
+      .select('*')
+      .eq('is_active', true)
+      .order('section', { ascending: true })
+      .order('display_order', { ascending: true }),
+    // Açık siparişleri kalemleriyle çek (tutarı hesaplamak için)
+    supabase
+      .from('orders')
+      .select(`
       id,
       table_id,
       order_items ( quantity, unit_price )
     `)
-    .eq('status', 'open')
+      .eq('status', 'open'),
+  ])
+
+  const profile = profileRes.data
+  const tables = tablesRes.data
+  const openOrders = openOrdersRes.data
+
+  if (!profile) redirect('/login')
 
   // Masa id'sine göre {orderId, total} eşleştir
   type OpenOrderInfo = { orderId: string; total: number }
