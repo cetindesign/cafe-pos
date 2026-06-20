@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { renameTable } from './actions'
-import { Pencil, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Pencil } from 'lucide-react'
 
 type Props = {
-  tableId: string
   tableName: string
+  // Optimistic kaydet: yeni adı parent uygular (anında) + renameTable'ı arkada çalıştırır.
+  onSave: (newName: string) => void
 }
 
 /**
@@ -15,12 +14,13 @@ type Props = {
  * Kartın <button>'ının DIŞINDA, üst katmanda ayrı bir element olarak durur;
  * böylece tıklama kartın sipariş-açma akışını tetiklemez.
  * Sadece manager'a render edilir (page.tsx karar verir).
+ *
+ * Kaydet OPTIMISTIC'tir: yeni ad anında uygulanır (parent onSave), modal hemen
+ * kapanır; sunucu yanıtı beklenmez. Hata olursa parent eski ada geri döner.
  */
-export default function RenameTableButton({ tableId, tableName }: Props) {
-  const router = useRouter()
+export default function RenameTableButton({ tableName, onSave }: Props) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(tableName)
-  const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   // Kalem tıklaması kartın altındaki sipariş-açma butonuna sızmasın.
@@ -32,21 +32,15 @@ export default function RenameTableButton({ tableId, tableName }: Props) {
   }
 
   function handleSave() {
-    setError(null)
-    startTransition(async () => {
-      try {
-        await renameTable(tableId, name)
-        setOpen(false)
-        // Sayfa force-dynamic olduğundan önce router.refresh() ile tazeliyoruz.
-        router.refresh()
-        // Üretimde cache nedeniyle yeni isim hemen yansımazsa, bilinen çözüm:
-        // window.location.href = '/pos'
-      } catch (e) {
-        const message =
-          e instanceof Error ? e.message : 'Masa adı güncellenemedi.'
-        setError(message)
-      }
-    })
+    const trimmed = name.trim()
+    // Boş ad sunucuda da reddedilir; burada erken yakalayıp modalı açık tutuyoruz.
+    if (!trimmed) {
+      setError('Masa adı boş olamaz.')
+      return
+    }
+    // Optimistic uygula + anında kapat. Aynı modal tekrar gönderilemez (kapandı).
+    onSave(trimmed)
+    setOpen(false)
   }
 
   return (
@@ -63,7 +57,7 @@ export default function RenameTableButton({ tableId, tableName }: Props) {
       {open && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-          onClick={() => !isPending && setOpen(false)}
+          onClick={() => setOpen(false)}
         >
           <div
             className="bg-white rounded-2xl border border-brand-border shadow-xl max-w-md w-full p-8"
@@ -82,11 +76,13 @@ export default function RenameTableButton({ tableId, tableName }: Props) {
             <input
               id="table-name"
               type="text"
-              defaultValue={tableName}
+              value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={isPending}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSave()
+              }}
               autoFocus
-              className="w-full rounded-lg border border-brand-border px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow disabled:opacity-50"
+              className="w-full rounded-lg border border-brand-border px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-shadow"
             />
 
             {error && (
@@ -99,19 +95,16 @@ export default function RenameTableButton({ tableId, tableName }: Props) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                disabled={isPending}
-                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors disabled:opacity-50"
+                className="flex-1 rounded-lg border border-brand-border px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-brand-muted transition-colors"
               >
                 İptal
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isPending}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
               >
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isPending ? 'Kaydediliyor...' : 'Kaydet'}
+                Kaydet
               </button>
             </div>
           </div>

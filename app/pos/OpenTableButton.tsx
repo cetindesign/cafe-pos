@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useOptimistic, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { getOrCreateOrderForTable } from './actions'
+import { getOrCreateOrderForTable, renameTable } from './actions'
 import { Loader2 } from 'lucide-react'
 import RenameTableButton from './RenameTableButton'
 
@@ -24,24 +24,60 @@ export default function OpenTableButton({
   canEdit,
 }: Props) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  // Masaya dokunup siparişe geçerken pending feedback (hem boş hem dolu masada).
+  const [isOpening, startOpening] = useTransition()
+  // Masa adı düzenlemesi için ayrı transition (optimistic ismi taşır).
+  const [, startRenaming] = useTransition()
+  // Optimistic masa adı: rename sırasında kartta ANINDA yeni ad görünür; base
+  // (tableName prop'u) değişmezse transition bitince eski ada geri döner.
+  const [displayName, setOptimisticName] = useOptimistic(
+    tableName,
+    (_current, next: string) => next
+  )
   const [error, setError] = useState<string | null>(null)
+
+  // Dolu masada order route'u (id zaten belli) önceden prefetch et: route JS
+  // chunk'ı + loading.tsx iskeleti hazır olur, dokununca anında geçer; geriye
+  // yalnızca paralel veri sorgusu kalır. Boş masada id henüz yok, prefetch edilemez.
+  useEffect(() => {
+    if (existingOrderId) {
+      router.prefetch(`/pos/orders/${existingOrderId}`)
+    }
+  }, [existingOrderId, router])
 
   function handleClick() {
     setError(null)
-
-    if (existingOrderId) {
-      router.push(`/pos/orders/${existingOrderId}`)
-      return
-    }
-
-    startTransition(async () => {
+    // router.push'u transition içine alıyoruz ki varış yüklenene dek isPending
+    // true kalsın (kart pending görünür, çift tık engellenir).
+    startOpening(async () => {
       try {
-        const { orderId } = await getOrCreateOrderForTable(tableId)
-        router.push(`/pos/orders/${orderId}`)
+        let targetId = existingOrderId
+        if (!targetId) {
+          const res = await getOrCreateOrderForTable(tableId)
+          targetId = res.orderId
+        }
+        router.push(`/pos/orders/${targetId}`)
       } catch (e) {
         setError('Sipariş açılamadı. Tekrar deneyin.')
         console.error(e)
+      }
+    })
+  }
+
+  // RenameTableButton'dan çağrılır: optimistic güncelle + renameTable'ı arkada çalıştır.
+  function handleRename(newName: string) {
+    setError(null)
+    startRenaming(async () => {
+      setOptimisticName(newName) // kart adı anında değişir
+      try {
+        await renameTable(tableId, newName)
+        // Başarı: base prop'u yeni isimle tazele; optimistic değer sabitlenir.
+        router.refresh()
+      } catch (e) {
+        // Hata: optimistic değer transition bitince eski ada döner; mesajı göster.
+        const message =
+          e instanceof Error ? e.message : 'Masa adı güncellenemedi.'
+        setError(message)
       }
     })
   }
@@ -52,7 +88,7 @@ export default function OpenTableButton({
     <div className="relative">
     <button
       onClick={handleClick}
-      disabled={isPending}
+      disabled={isOpening}
       className={`
         relative aspect-square w-full rounded-2xl p-4 text-left transition-all
         border
@@ -67,7 +103,7 @@ export default function OpenTableButton({
     >
       <div className="flex flex-col h-full justify-between">
         <span className="font-serif text-lg font-bold leading-tight">
-          {tableName}
+          {displayName}
         </span>
         <div>
           {isOccupied && currentTotal > 0 && (
@@ -85,9 +121,12 @@ export default function OpenTableButton({
         </div>
       </div>
 
-      {isPending && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
+      {isOpening && (
+        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-white/80 rounded-2xl">
           <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
+          <span className="text-xs font-medium text-brand-primary">
+            Açılıyor…
+          </span>
         </div>
       )}
 
@@ -100,7 +139,7 @@ export default function OpenTableButton({
 
       {/* Yalnızca manager'a görünür: masa adını düzenleme afordansı */}
       {canEdit && (
-        <RenameTableButton tableId={tableId} tableName={tableName} />
+        <RenameTableButton tableName={displayName} onSave={handleRename} />
       )}
     </div>
   )
